@@ -808,125 +808,105 @@ async function digestMessage(str) {
     return hashHex
 }
 
-/**
- * Initialize News UI. This will load the news and prepare
- * the UI accordingly.
- * 
- * @returns {Promise.<void>} A promise which resolves when the news
- * content has finished loading and transitioning.
- */
-async function initNews(){
+async function initNews() {
+    setNewsLoading(true);
 
-    setNewsLoading(true)
+    // Remplacer ici par ton contenu personnalisé
+    const customNews = {
+        articles: [
+            {
+                title: "WAR Country",
+                content: "WAR Country est actuellement en développement :)",
+                author: "DEV | Sens",
+                date: new Date().toISOString(),
+                comments: 0,
+                commentsLink: "#"
+            }
+        ]
+    };
 
-    const news = await loadNews()
+    newsArr = customNews?.articles || null;
 
-    newsArr = news?.articles || null
-
-    if(newsArr == null){
+    if (newsArr == null) {
         // News Loading Failed
-        setNewsLoading(false)
+        setNewsLoading(false);
 
-        await $('#newsErrorLoading').fadeOut(250).promise()
-        await $('#newsErrorFailed').fadeIn(250).promise()
-
-    } else if(newsArr.length === 0) {
+        await $('#newsErrorLoading').fadeOut(250).promise();
+        await $('#newsErrorFailed').fadeIn(250).promise();
+    } else if (newsArr.length === 0) {
         // No News Articles
-        setNewsLoading(false)
+        setNewsLoading(false);
 
+        // Vider le cache si aucune actualité
         ConfigManager.setNewsCache({
             date: null,
             content: null,
             dismissed: false
-        })
-        ConfigManager.save()
+        });
+        ConfigManager.save();
 
-        await $('#newsErrorLoading').fadeOut(250).promise()
-        await $('#newsErrorNone').fadeIn(250).promise()
+        await $('#newsErrorLoading').fadeOut(250).promise();
+        await $('#newsErrorNone').fadeIn(250).promise();
     } else {
         // Success
-        setNewsLoading(false)
+        setNewsLoading(false);
 
-        const lN = newsArr[0]
-        const cached = ConfigManager.getNewsCache()
-        let newHash = await digestMessage(lN.content)
-        let newDate = new Date(lN.date)
-        let isNew = false
+        const lN = newsArr[0];
+        const cached = ConfigManager.getNewsCache();
+        console.log("Cached news:", cached); // Déboguer le cache
 
-        if(cached.date != null && cached.content != null){
+        let newHash = await digestMessage(lN.content);
+        let newDate = new Date(lN.date);
+        let isNew = false;
 
-            if(new Date(cached.date) >= newDate){
-
+        // Vérification du cache
+        if (cached.date != null && cached.content != null) {
+            if (new Date(cached.date) >= newDate) {
                 // Compare Content
-                if(cached.content !== newHash){
-                    isNew = true
-                    showNewsAlert()
+                if (cached.content !== newHash) {
+                    isNew = true;
+                    showNewsAlert();
                 } else {
-                    if(!cached.dismissed){
-                        isNew = true
-                        showNewsAlert()
+                    if (!cached.dismissed) {
+                        isNew = true;
+                        showNewsAlert();
                     }
                 }
-
             } else {
-                isNew = true
-                showNewsAlert()
+                isNew = true;
+                showNewsAlert();
             }
-
         } else {
-            isNew = true
-            showNewsAlert()
+            isNew = true;
+            showNewsAlert();
         }
 
-        if(isNew){
+        // Mise à jour du cache si nécessaire
+        if (isNew) {
+            console.log("Updating cache with new news..."); // Déboguer la mise à jour du cache
             ConfigManager.setNewsCache({
                 date: newDate.getTime(),
                 content: newHash,
                 dismissed: false
-            })
-            ConfigManager.save()
+            });
+            ConfigManager.save();
         }
 
         const switchHandler = (forward) => {
-            let cArt = parseInt(newsContent.getAttribute('article'))
-            let nxtArt = forward ? (cArt >= newsArr.length-1 ? 0 : cArt + 1) : (cArt <= 0 ? newsArr.length-1 : cArt - 1)
-    
-            displayArticle(newsArr[nxtArt], nxtArt+1)
-        }
+            let cArt = parseInt(newsContent.getAttribute('article'));
+            let nxtArt = forward ? (cArt >= newsArr.length - 1 ? 0 : cArt + 1) : (cArt <= 0 ? newsArr.length - 1 : cArt - 1);
 
-        document.getElementById('newsNavigateRight').onclick = () => { switchHandler(true) }
-        document.getElementById('newsNavigateLeft').onclick = () => { switchHandler(false) }
-        await $('#newsErrorContainer').fadeOut(250).promise()
-        displayArticle(newsArr[0], 1)
-        await $('#newsContent').fadeIn(250).promise()
+            displayArticle(newsArr[nxtArt], nxtArt + 1);
+        };
+
+        document.getElementById('newsNavigateRight').onclick = () => { switchHandler(true); };
+        document.getElementById('newsNavigateLeft').onclick = () => { switchHandler(false); };
+
+        await $('#newsErrorContainer').fadeOut(250).promise();
+        displayArticle(newsArr[0], 1);
+        await $('#newsContent').fadeIn(250).promise();
     }
-
-
 }
-
-/**
- * Add keyboard controls to the news UI. Left and right arrows toggle
- * between articles. If you are on the landing page, the up arrow will
- * open the news UI.
- */
-document.addEventListener('keydown', (e) => {
-    if(newsActive){
-        if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
-            document.getElementById(e.key === 'ArrowRight' ? 'newsNavigateRight' : 'newsNavigateLeft').click()
-        }
-        // Interferes with scrolling an article using the down arrow.
-        // Not sure of a straight forward solution at this point.
-        // if(e.key === 'ArrowDown'){
-        //     document.getElementById('newsButton').click()
-        // }
-    } else {
-        if(getCurrentView() === VIEWS.landing){
-            if(e.key === 'ArrowUp'){
-                document.getElementById('newsButton').click()
-            }
-        }
-    }
-})
 
 /**
  * Display a news article on the UI.
@@ -934,23 +914,25 @@ document.addEventListener('keydown', (e) => {
  * @param {Object} articleObject The article meta object.
  * @param {number} index The article index.
  */
-function displayArticle(articleObject, index){
-    newsArticleTitle.innerHTML = articleObject.title
-    newsArticleTitle.href = articleObject.link
-    newsArticleAuthor.innerHTML = 'by ' + articleObject.author
-    newsArticleDate.innerHTML = articleObject.date
-    newsArticleComments.innerHTML = articleObject.comments
-    newsArticleComments.href = articleObject.commentsLink
-    newsArticleContentScrollable.innerHTML = '<div id="newsArticleContentWrapper"><div class="newsArticleSpacerTop"></div>' + articleObject.content + '<div class="newsArticleSpacerBot"></div></div>'
+function displayArticle(articleObject, index) {
+    console.log("Displaying article:", articleObject); // Déboguer l'affichage de l'article
+    newsArticleTitle.innerHTML = articleObject.title;
+    newsArticleTitle.href = articleObject.link || "#";
+    newsArticleAuthor.innerHTML = 'by ' + articleObject.author;
+    newsArticleDate.innerHTML = articleObject.date;
+    newsArticleComments.innerHTML = articleObject.comments;
+    newsArticleComments.href = articleObject.commentsLink;
+    newsArticleContentScrollable.innerHTML = '<div id="newsArticleContentWrapper"><div class="newsArticleSpacerTop"></div>' + articleObject.content + '<div class="newsArticleSpacerBot"></div></div>';
     Array.from(newsArticleContentScrollable.getElementsByClassName('bbCodeSpoilerButton')).forEach(v => {
         v.onclick = () => {
-            const text = v.parentElement.getElementsByClassName('bbCodeSpoilerText')[0]
-            text.style.display = text.style.display === 'block' ? 'none' : 'block'
-        }
-    })
-    newsNavigationStatus.innerHTML = Lang.query('ejs.landing.newsNavigationStatus', {currentPage: index, totalPages: newsArr.length})
-    newsContent.setAttribute('article', index-1)
+            const text = v.parentElement.getElementsByClassName('bbCodeSpoilerText')[0];
+            text.style.display = text.style.display === 'block' ? 'none' : 'block';
+        };
+    });
+    newsNavigationStatus.innerHTML = Lang.query('ejs.landing.newsNavigationStatus', { currentPage: index, totalPages: newsArr.length });
+    newsContent.setAttribute('article', index - 1);
 }
+
 
 /**
  * Load news information from the RSS feed specified in the
